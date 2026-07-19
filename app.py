@@ -1,44 +1,43 @@
-# import streamlit as st
-
-# st.title("QuickBite Crisis Recovery Dashboard")
-
-# st.write("Welcome to my first Streamlit dashboard!")
-
-# import streamlit as st
-# import pandas as pd
-
-# from database import get_engine
-
-# engine = get_engine()
-
-# query = """
-# SELECT COUNT(*)
-# FROM fact_orders;
-# """
-
-# df = pd.read_sql(query, engine)
-
-# st.title("QuickBite Dashboard")
-
-# st.write(df)
-
-
 import streamlit as st
 
+import views.home as home
+import views.business_overview as business_overview
+import views.executive_dashboard as executive_dashboard
+import views.order_analysis as order_analysis
+import views.customer_analysis as customer_analysis
+import views.delivery_analysis as delivery_analysis
+import views.feedback_analysis as feedback_analysis
+import views.revenue_analysis as revenue_analysis
+import views.recommendations as recommendations
+import views.about as about
+
+
 st.set_page_config(
-    page_title="QuickBite Crisis Analytics",
-    page_icon="🍔",
+    page_title="QuickBite Crisis Recovery Analytics",
+    page_icon="🍽️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("QuickBite Express")
-st.subheader("Crisis Recovery Analytics Platform")
+PAGES = {
+    "Home": home.show,
+    "Business Overview": business_overview.show,
+    "Executive Dashboard": executive_dashboard.show
+    # ,
+    # "Order Analysis": order_analysis.show,
+    # "Customer Analysis": customer_analysis.show,
+    # "Delivery Analysis": delivery_analysis.show,
+    # "Feedback Analysis": feedback_analysis.show,
+    # "Revenue Analysis": revenue_analysis.show,
+    # "Recommendations": recommendations.show,
+    # "About": about.show
+}
 
-st.write(
-    """
-    Welcome to the QuickBite Crisis Recovery Analytics Platform     .
+st.sidebar.title("Navigation")
 
-    Please select a page from the sidebar to begin the analysis.
-    """
+selected_page = st.sidebar.radio(
+    "Go to",
+    list(PAGES.keys())
 )
+
+PAGES[selected_page]()
