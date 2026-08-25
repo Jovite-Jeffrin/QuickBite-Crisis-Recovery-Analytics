@@ -22,9 +22,9 @@ st.set_page_config(
 PAGES = {
     "Home": home.show,
     "Business Overview": business_overview.show,
-    "Executive Dashboard": executive_dashboard.show
+    "Executive Dashboard": executive_dashboard.show,
+    "Order Analysis": order_analysis.show
     # ,
-    # "Order Analysis": order_analysis.show,
     # "Customer Analysis": customer_analysis.show,
     # "Delivery Analysis": delivery_analysis.show,
     # "Feedback Analysis": feedback_analysis.show,
