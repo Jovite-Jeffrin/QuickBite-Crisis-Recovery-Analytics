@@ -53,7 +53,7 @@ def show():
     # Q1 — OVERALL ORDER DECLINE
     # ==================================================
 
-    st.header("Q1 — Overall Order Decline")
+    st.header("Overall Order Decline")
 
     st.write(
         """
@@ -344,7 +344,7 @@ def show():
         # Q1 KEY FINDING
         # --------------------------------------------------
 
-        st.subheader("Q1 — Key Finding")
+        st.subheader("Key Finding")
 
         if monthly_order_decline_percentage > 0:
 
@@ -390,7 +390,7 @@ def show():
     # Q2 — CITY-LEVEL ORDER DECLINE
     # ==================================================
 
-    st.header("Q2 — City-Level Order Decline")
+    st.header("City-Level Order Decline")
 
     st.write(
         """
@@ -576,7 +576,7 @@ def show():
 
         top_city = city_decline.iloc[0]
 
-        st.subheader("Q2 — Key Finding")
+        st.subheader("Key Finding")
 
         st.write(
             f"""
@@ -596,7 +596,7 @@ def show():
     # Q3 — RESTAURANT-LEVEL ORDER DECLINE
     # ==================================================
 
-    st.header("Q3 — Restaurant-Level Order Decline")
+    st.header("Restaurant-Level Order Decline")
 
     st.write(
         """
@@ -820,7 +820,7 @@ def show():
         )
 
         st.subheader(
-            "Q3 — Key Finding"
+            "Key Finding"
         )
 
         st.write(
@@ -846,7 +846,7 @@ def show():
         # Q4 — CANCELLATION ANALYSIS
         # ==================================================
 
-        st.header("Q4 — Cancellation Analysis")
+        st.header("Cancellation Analysis")
 
         st.write(
             """
@@ -1133,7 +1133,7 @@ def show():
             )
 
             st.subheader(
-                "Q4 — Key Finding"
+                "Key Finding"
             )
 
             st.write(
@@ -1164,7 +1164,7 @@ def show():
         # Q5 — DELIVERY SLA
         # ==================================================
 
-        st.header("Q5 — Delivery SLA Performance")
+        st.header("Delivery SLA Performance")
 
         st.write(
             """
@@ -1433,7 +1433,7 @@ def show():
             # --------------------------------------------------
 
             st.subheader(
-                "Q5 — Key Finding"
+                "Key Finding"
             )
 
             st.write(
@@ -1468,7 +1468,7 @@ def show():
         # Q6 — RATINGS FLUCTUATION
         # ==================================================
 
-        st.header("Q6 — Customer Ratings Fluctuation")
+        st.header("Customer Ratings Fluctuation")
 
         st.write(
             """
@@ -1704,7 +1704,7 @@ def show():
             # --------------------------------------------------
 
             st.subheader(
-                "Q6 — Key Finding"
+                "Key Finding"
             )
 
             sharpest_month = (
@@ -1731,3 +1731,1564 @@ def show():
                 falling from **4.49 in May to 2.63 in June**.
                 """
             )
+
+
+        # ==================================================
+        # Q7 — SENTIMENT INSIGHTS
+        # ==================================================
+
+        st.divider()
+
+        st.header("Customer Sentiment Insights")
+
+        st.write(
+            """
+            During the crisis period, what were the most frequently
+            occurring negative keywords in customer reviews?
+            """
+        )
+
+        # --------------------------------------------------
+        # LOAD CRISIS NEGATIVE REVIEWS
+        # --------------------------------------------------
+
+        try:
+
+            sentiment_query = """
+                SELECT
+                    review_text,
+                    sentiment_score
+
+                FROM fact_ratings
+
+                WHERE review_timestamp::DATE
+                    BETWEEN '2025-06-01' AND '2025-09-30'
+
+                AND review_text IS NOT NULL
+
+                AND TRIM(review_text) <> ''
+
+                AND sentiment_score < 0
+            """
+
+            sentiment_df = pd.read_sql(
+                sentiment_query,
+                engine
+            )
+
+        except Exception as e:
+
+            st.error(
+                "Unable to load sentiment data."
+            )
+
+            st.exception(e)
+
+            return
+
+        if sentiment_df.empty:
+
+            st.warning(
+                "No negative crisis-period reviews were found."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # KPI CALCULATIONS
+        # --------------------------------------------------
+
+        negative_review_count = len(
+            sentiment_df
+        )
+
+        average_sentiment = (
+            sentiment_df["sentiment_score"]
+            .mean()
+        )
+
+        most_negative_score = (
+            sentiment_df["sentiment_score"]
+            .min()
+        )
+
+        # --------------------------------------------------
+        # KPI CARDS
+        # --------------------------------------------------
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "Negative Reviews",
+                f"{negative_review_count:,}"
+            )
+
+        with col2:
+
+            st.metric(
+                "Average Sentiment",
+                f"{average_sentiment:.2f}"
+            )
+
+        with col3:
+
+            st.metric(
+                "Most Negative Score",
+                f"{most_negative_score:.2f}"
+            )
+
+        # --------------------------------------------------
+        # CLEAN REVIEW TEXT
+        # --------------------------------------------------
+
+        import re
+        from collections import Counter
+        from wordcloud import WordCloud
+
+        reviews = (
+            sentiment_df["review_text"]
+            .astype(str)
+            .str.lower()
+            .tolist()
+        )
+
+        # --------------------------------------------------
+        # MEANINGFUL NEGATIVE KEYWORDS / PHRASES
+        # --------------------------------------------------
+
+        negative_terms = [
+            "taste",
+            "quality",
+            "stale",
+            "cold",
+            "hygiene",
+            "safety",
+            "packaging",
+            "service",
+            "late",
+            "delivery",
+            "price",
+            "portion",
+            "hotter",
+            "recommended",
+            "worst",
+            "terrible",
+            "horrible",
+            "poor",
+            "not good",
+            "not great",
+            "not recommended",
+            "never again",
+            "not worth"
+        ]
+
+        # --------------------------------------------------
+        # COUNT NEGATIVE TERMS
+        # --------------------------------------------------
+
+        keyword_counts = Counter()
+
+        for review in reviews:
+
+            review = re.sub(
+                r"[^a-z\s]",
+                " ",
+                review
+            )
+
+            review = re.sub(
+                r"\s+",
+                " ",
+                review
+            ).strip()
+
+            for term in negative_terms:
+
+                if term in review:
+
+                    keyword_counts[term] += 1
+
+        # --------------------------------------------------
+        # CREATE KEYWORD DATAFRAME
+        # --------------------------------------------------
+
+        word_counts = (
+            pd.DataFrame(
+                keyword_counts.items(),
+                columns=[
+                    "Keyword",
+                    "Frequency"
+                ]
+            )
+            .sort_values(
+                "Frequency",
+                ascending=False
+            )
+            .reset_index(drop=True)
+        )
+
+        # --------------------------------------------------
+        # CHECK KEYWORD RESULTS
+        # --------------------------------------------------
+
+        if word_counts.empty:
+
+            st.warning(
+                "No meaningful negative keywords were identified."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # MOST FREQUENT NEGATIVE KEYWORDS
+        # --------------------------------------------------
+
+        st.subheader(
+            "Most Frequent Negative Keywords"
+        )
+
+        st.dataframe(
+            word_counts,
+            hide_index=True,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # WORD CLOUD
+        # --------------------------------------------------
+
+        cloud_text = " ".join(
+            [
+                (
+                    keyword.replace(" ", "_") + " "
+                ) * int(frequency)
+
+                for keyword, frequency
+                in zip(
+                    word_counts["Keyword"],
+                    word_counts["Frequency"]
+                )
+            ]
+        )
+
+        wordcloud = WordCloud(
+            width=1200,
+            height=600,
+            background_color="white",
+            min_font_size=10
+        ).generate(
+            cloud_text
+        )
+
+        st.subheader(
+            "Negative Review Keyword Cloud"
+        )
+
+        st.image(
+            wordcloud.to_array(),
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # TOP 10 NEGATIVE KEYWORDS
+        # --------------------------------------------------
+
+        st.subheader(
+            "Top 10 Negative Keywords"
+        )
+
+        top_keywords = (
+            word_counts
+            .head(10)
+            .sort_values(
+                "Frequency",
+                ascending=True
+            )
+        )
+
+        keyword_fig = px.bar(
+            top_keywords,
+            x="Frequency",
+            y="Keyword",
+            orientation="h",
+            text="Frequency",
+            labels={
+                "Frequency": "Number of Mentions",
+                "Keyword": "Negative Keyword"
+            }
+        )
+
+        keyword_fig.update_traces(
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Mentions: %{x:,}"
+                "<extra></extra>"
+            )
+        )
+
+        keyword_fig.update_layout(
+            height=450,
+
+            xaxis=dict(
+                title="Number of Mentions"
+            ),
+
+            yaxis=dict(
+                title=""
+            ),
+
+            margin=dict(
+                t=40,
+                b=40,
+                l=100,
+                r=60
+            )
+        )
+
+        st.plotly_chart(
+            keyword_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # KEY FINDING
+        # --------------------------------------------------
+
+        top_keyword = (
+            word_counts.iloc[0]
+        )
+
+        st.subheader(
+            "Key Finding"
+        )
+
+        st.write(
+            f"""
+            During the crisis period, **{negative_review_count:,}**
+            negative customer reviews were identified.
+
+            The most frequently occurring meaningful complaint keyword
+            was **"{top_keyword['Keyword']}"**, appearing
+            **{int(top_keyword['Frequency']):,} times** across the
+            negative reviews.
+
+            The average sentiment score of these reviews was
+            **{average_sentiment:.2f}**, indicating a predominantly
+            negative customer experience during the crisis.
+            """
+        )
+
+
+        # ==================================================
+        # Q8 — REVENUE IMPACT
+        # ==================================================
+
+        st.divider()
+
+        st.header("Revenue Impact")
+
+        st.write(
+            """
+            How did the crisis affect revenue, and was the decline
+            primarily driven by lower order volume or lower order value?
+            """
+        )
+
+        # --------------------------------------------------
+        # LOAD REVENUE DATA
+        # --------------------------------------------------
+
+        try:
+
+            revenue_query = load_sql(
+                "sql/q8_revenue_impact.sql"
+            )
+
+            revenue_df = pd.read_sql(
+                revenue_query,
+                engine
+            )
+
+        except Exception as e:
+
+            st.error(
+                "Unable to load revenue data."
+            )
+
+            st.exception(e)
+
+            return
+
+        if revenue_df.empty:
+
+            st.warning(
+                "No revenue data is available."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # GET PRE-CRISIS AND CRISIS VALUES
+        # --------------------------------------------------
+
+        pre_crisis_revenue = revenue_df[
+            revenue_df["phase"] == "Pre-Crisis"
+        ].iloc[0]
+
+        crisis_revenue = revenue_df[
+            revenue_df["phase"] == "Crisis"
+        ].iloc[0]
+
+        # --------------------------------------------------
+        # CALCULATE CHANGES
+        # --------------------------------------------------
+
+        revenue_change = (
+            float(crisis_revenue["total_revenue"])
+            -
+            float(pre_crisis_revenue["total_revenue"])
+        )
+
+        revenue_decline_pct = (
+            revenue_change
+            /
+            float(pre_crisis_revenue["total_revenue"])
+        ) * 100
+
+        order_change = (
+            int(crisis_revenue["completed_orders"])
+            -
+            int(pre_crisis_revenue["completed_orders"])
+        )
+
+        order_decline_pct = (
+            order_change
+            /
+            int(pre_crisis_revenue["completed_orders"])
+        ) * 100
+
+        aov_change = (
+            float(crisis_revenue["average_order_value"])
+            -
+            float(pre_crisis_revenue["average_order_value"])
+        )
+
+        aov_change_pct = (
+            aov_change
+            /
+            float(pre_crisis_revenue["average_order_value"])
+        ) * 100
+
+        # --------------------------------------------------
+        # KPI CARDS
+        # --------------------------------------------------
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+
+            st.metric(
+                "Pre-Crisis Revenue",
+                f"₹{pre_crisis_revenue['total_revenue']:,.0f}"
+            )
+
+        with col2:
+
+            st.metric(
+                "Crisis Revenue",
+                f"₹{crisis_revenue['total_revenue']:,.0f}",
+                delta=f"{revenue_decline_pct:.1f}%",
+                delta_color="inverse"
+            )
+
+        with col3:
+
+            st.metric(
+                "Completed Orders",
+                f"{crisis_revenue['completed_orders']:,}",
+                delta=f"{order_decline_pct:.1f}%",
+                delta_color="inverse"
+            )
+
+        with col4:
+
+            st.metric(
+                "Average Order Value",
+                f"₹{crisis_revenue['average_order_value']:,.2f}",
+                delta=f"{aov_change_pct:+.1f}%"
+            )
+
+        # --------------------------------------------------
+        # REVENUE COMPARISON
+        # --------------------------------------------------
+
+        st.subheader(
+            "Revenue Comparison"
+        )
+
+        revenue_chart_df = revenue_df[
+            [
+                "phase",
+                "total_revenue"
+            ]
+        ].copy()
+
+        revenue_fig = px.bar(
+            revenue_chart_df,
+            x="phase",
+            y="total_revenue",
+            text="total_revenue",
+            labels={
+                "phase": "Period",
+                "total_revenue": "Revenue"
+            }
+        )
+
+        revenue_fig.update_traces(
+            texttemplate="₹%{text:,.0f}",
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Revenue: ₹%{y:,.0f}"
+                "<extra></extra>"
+            )
+        )
+
+        revenue_fig.update_layout(
+            height=450,
+
+            yaxis=dict(
+                title="Revenue (₹)",
+                tickformat=","
+            ),
+
+            xaxis=dict(
+                title=""
+            ),
+
+            margin=dict(
+                t=40,
+                b=40,
+                l=70,
+                r=40
+            )
+        )
+
+        st.plotly_chart(
+            revenue_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # ORDER VOLUME VS AOV
+        # --------------------------------------------------
+
+        st.subheader(
+            "Order Volume vs Average Order Value"
+        )
+
+        comparison_df = revenue_df[
+            [
+                "phase",
+                "completed_orders",
+                "average_order_value"
+            ]
+        ].copy()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            order_fig = px.bar(
+                comparison_df,
+                x="phase",
+                y="completed_orders",
+                text="completed_orders",
+                labels={
+                    "phase": "Period",
+                    "completed_orders":
+                        "Completed Orders"
+                }
+            )
+
+            order_fig.update_traces(
+                texttemplate="%{text:,}",
+                textposition="outside",
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Completed Orders: %{y:,}"
+                    "<extra></extra>"
+                )
+            )
+
+            order_fig.update_layout(
+                height=400,
+                yaxis=dict(
+                    title="Completed Orders"
+                ),
+                xaxis=dict(
+                    title=""
+                ),
+                margin=dict(
+                    t=40,
+                    b=40,
+                    l=60,
+                    r=30
+                )
+            )
+
+            st.plotly_chart(
+                order_fig,
+                width="stretch"
+            )
+
+        with col2:
+
+            aov_fig = px.bar(
+                comparison_df,
+                x="phase",
+                y="average_order_value",
+                text="average_order_value",
+                labels={
+                    "phase": "Period",
+                    "average_order_value":
+                        "Average Order Value"
+                }
+            )
+
+            aov_fig.update_traces(
+                texttemplate="₹%{text:,.2f}",
+                textposition="outside",
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Average Order Value: ₹%{y:,.2f}"
+                    "<extra></extra>"
+                )
+            )
+
+            aov_fig.update_layout(
+                height=400,
+                yaxis=dict(
+                    title="Average Order Value (₹)"
+                ),
+                xaxis=dict(
+                    title=""
+                ),
+                margin=dict(
+                    t=40,
+                    b=40,
+                    l=60,
+                    r=30
+                )
+            )
+
+            st.plotly_chart(
+                aov_fig,
+                width="stretch"
+            )
+
+        # --------------------------------------------------
+        # REVENUE COMPONENTS
+        # --------------------------------------------------
+
+        st.subheader(
+            "Revenue Components"
+        )
+
+        component_df = revenue_df[
+            [
+                "phase",
+                "subtotal_revenue",
+                "total_discount",
+                "total_delivery_fee"
+            ]
+        ].copy()
+
+        component_df = component_df.melt(
+            id_vars="phase",
+            value_vars=[
+                "subtotal_revenue",
+                "total_discount",
+                "total_delivery_fee"
+            ],
+            var_name="component",
+            value_name="amount"
+        )
+
+        component_df["component"] = (
+            component_df["component"].replace(
+                {
+                    "subtotal_revenue":
+                        "Subtotal Revenue",
+
+                    "total_discount":
+                        "Discounts",
+
+                    "total_delivery_fee":
+                        "Delivery Fees"
+                }
+            )
+        )
+
+        component_fig = px.bar(
+            component_df,
+            x="phase",
+            y="amount",
+            color="component",
+            barmode="group",
+            labels={
+                "phase": "Period",
+                "amount": "Amount (₹)",
+                "component": "Revenue Component"
+            }
+        )
+
+        component_fig.update_traces(
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "%{fullData.name}: ₹%{y:,.0f}"
+                "<extra></extra>"
+            )
+        )
+
+        component_fig.update_layout(
+            height=450,
+            yaxis=dict(
+                title="Amount (₹)"
+            ),
+            xaxis=dict(
+                title=""
+            ),
+            margin=dict(
+                t=40,
+                b=40,
+                l=70,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            component_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # KEY FINDING
+        # --------------------------------------------------
+
+        st.subheader(
+            "Key Finding"
+        )
+
+        if abs(order_decline_pct) > abs(aov_change_pct):
+
+            primary_driver = (
+                "the sharp decline in completed order volume"
+            )
+
+        else:
+
+            primary_driver = (
+                "the change in average order value"
+            )
+
+        st.write(
+            f"""
+            Total revenue declined from
+            **₹{pre_crisis_revenue['total_revenue']:,.0f}**
+            during the pre-crisis period to
+            **₹{crisis_revenue['total_revenue']:,.0f}**
+            during the crisis, representing a
+            **{abs(revenue_decline_pct):.1f}% decline**.
+
+            Completed orders fell by
+            **{abs(order_decline_pct):.1f}%**, while average order value
+            changed by **{aov_change_pct:+.1f}%**.
+
+            The revenue deterioration was primarily associated with
+            **{primary_driver}**.
+            """
+        )
+
+
+        # ==================================================
+        # Q9 — LOYALTY IMPACT
+        # ==================================================
+
+        st.divider()
+
+        st.header("Customer Loyalty Impact")
+
+        st.write(
+            """
+            Among customers who placed five or more orders before the
+            crisis, how many stopped ordering during the crisis, and how
+            many of those customers had an average rating above 4.5?
+            """
+        )
+
+        # --------------------------------------------------
+        # LOAD LOYALTY DATA
+        # --------------------------------------------------
+
+        try:
+
+            loyalty_query = load_sql(
+                "sql/q9_loyalty_impact.sql"
+            )
+
+            loyalty_df = pd.read_sql(
+                loyalty_query,
+                engine
+            )
+
+        except Exception as e:
+
+            st.error(
+                "Unable to load customer loyalty data."
+            )
+
+            st.exception(e)
+
+            return
+
+        if loyalty_df.empty:
+
+            st.warning(
+                "No customer loyalty data is available."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # GET VALUES
+        # --------------------------------------------------
+
+        loyalty = loyalty_df.iloc[0]
+
+        loyal_customers = int(
+            loyalty["loyal_pre_crisis_customers"]
+        )
+
+        stopped_customers = int(
+            loyalty["stopped_customers"]
+        )
+
+        stopped_percentage = float(
+            loyalty["stopped_customer_percentage"]
+        )
+
+        stopped_high_rating = int(
+            loyalty["stopped_high_rating_customers"]
+        )
+
+        high_rating_percentage = float(
+            loyalty["high_rating_percentage"]
+        )
+
+        # --------------------------------------------------
+        # KPI CARDS
+        # --------------------------------------------------
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+
+            st.metric(
+                "Loyal Pre-Crisis Customers",
+                f"{loyal_customers:,}"
+            )
+
+        with col2:
+
+            st.metric(
+                "Customers Who Stopped",
+                f"{stopped_customers:,}",
+                delta=f"{stopped_percentage:.1f}%",
+                delta_color="inverse"
+            )
+
+        with col3:
+
+            st.metric(
+                "Stopped + Rating > 4.5",
+                f"{stopped_high_rating:,}"
+            )
+
+        with col4:
+
+            st.metric(
+                "Share of Stopped Customers",
+                f"{high_rating_percentage:.1f}%"
+            )
+
+        # --------------------------------------------------
+        # LOYALTY FUNNEL
+        # --------------------------------------------------
+
+        st.subheader(
+            "Customer Loyalty Funnel"
+        )
+
+        funnel_df = pd.DataFrame(
+            {
+                "Stage": [
+                    "Loyal Pre-Crisis Customers",
+                    "Stopped During Crisis",
+                    "Stopped + Avg. Rating > 4.5"
+                ],
+
+                "Customers": [
+                    loyal_customers,
+                    stopped_customers,
+                    stopped_high_rating
+                ]
+            }
+        )
+
+        funnel_fig = px.funnel(
+            funnel_df,
+            x="Customers",
+            y="Stage",
+            text="Customers"
+        )
+
+        funnel_fig.update_traces(
+            texttemplate="%{text:,}",
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Customers: %{x:,}"
+                "<extra></extra>"
+            )
+        )
+
+        funnel_fig.update_layout(
+            height=450,
+            margin=dict(
+                t=40,
+                b=40,
+                l=40,
+                r=40
+            )
+        )
+
+        st.plotly_chart(
+            funnel_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # LOYALTY BREAKDOWN
+        # --------------------------------------------------
+
+        st.subheader(
+            "Loyal Customer Retention Breakdown"
+        )
+
+        retained_customers = (
+            loyal_customers -
+            stopped_customers
+        )
+
+        retention_df = pd.DataFrame(
+            {
+                "Customer Status": [
+                    "Continued Ordering",
+                    "Stopped Ordering"
+                ],
+
+                "Customers": [
+                    retained_customers,
+                    stopped_customers
+                ]
+            }
+        )
+
+        retention_fig = px.bar(
+            retention_df,
+            x="Customer Status",
+            y="Customers",
+            text="Customers",
+            labels={
+                "Customer Status": "",
+                "Customers": "Number of Customers"
+            }
+        )
+
+        retention_fig.update_traces(
+            texttemplate="%{text:,}",
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Customers: %{y:,}"
+                "<extra></extra>"
+            )
+        )
+
+        retention_fig.update_layout(
+            height=400,
+            margin=dict(
+                t=40,
+                b=40,
+                l=60,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            retention_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # KEY FINDING
+        # --------------------------------------------------
+
+        st.subheader(
+            "Key Finding"
+        )
+
+        st.write(
+            f"""
+            Among **{loyal_customers:,} customers** who placed at least
+            five completed orders before the crisis,
+            **{stopped_customers:,} customers ({stopped_percentage:.1f}%)**
+            stopped ordering completely during the crisis.
+
+            Of those customers who stopped,
+            **{stopped_high_rating:,} ({high_rating_percentage:.1f}%)**
+            had an average customer rating above **4.5**.
+
+            This indicates that the crisis affected not only occasional
+            customers, but also a segment of previously loyal and highly
+            engaged customers.
+            """
+        )
+
+
+        # ==================================================
+        # Q10 — CUSTOMER LIFETIME DECLINE
+        # ==================================================
+
+        st.divider()
+
+        st.header("High-Value Customer Lifetime Decline")
+
+        st.write(
+            """
+            Which high-value customers experienced the largest decline
+            in order frequency and ratings during the crisis, and what
+            common patterns do they share?
+            """
+        )
+
+        # --------------------------------------------------
+        # LOAD DATA
+        # --------------------------------------------------
+
+        try:
+
+            lifetime_query = load_sql(
+                "sql/q10_customer_lifetime_decline.sql"
+            )
+
+            lifetime_df = pd.read_sql(
+                lifetime_query,
+                engine
+            )
+
+        except Exception as e:
+
+            st.error(
+                "Unable to load high-value customer data."
+            )
+
+            st.exception(e)
+
+            return
+
+        if lifetime_df.empty:
+
+            st.warning(
+                "No high-value customer data is available."
+            )
+
+            return
+
+        # --------------------------------------------------
+        # CLEAN DATA
+        # --------------------------------------------------
+
+        numeric_columns = [
+            "pre_crisis_orders",
+            "pre_crisis_spend",
+            "crisis_orders",
+            "crisis_spend",
+            "order_frequency_change_pct",
+            "pre_crisis_rating",
+            "crisis_rating",
+            "rating_change",
+            "pre_crisis_delivery_delay",
+            "crisis_delivery_delay",
+            "delivery_delay_change"
+        ]
+
+        for column in numeric_columns:
+
+            lifetime_df[column] = pd.to_numeric(
+                lifetime_df[column],
+                errors="coerce"
+            )
+
+        # --------------------------------------------------
+        # TOP DECLINING CUSTOMERS
+        # --------------------------------------------------
+
+        top_decliners = (
+            lifetime_df
+            .sort_values(
+                [
+                    "order_frequency_change_pct",
+                    "rating_change"
+                ]
+            )
+            .head(10)
+            .copy()
+        )
+
+        # --------------------------------------------------
+        # KPI CALCULATIONS
+        # --------------------------------------------------
+
+        total_high_value = len(
+            lifetime_df
+        )
+
+        average_order_decline = (
+            lifetime_df[
+                "order_frequency_change_pct"
+            ].mean()
+        )
+
+        average_rating_change = (
+            lifetime_df[
+                "rating_change"
+            ].mean()
+        )
+
+        average_delay_change = (
+            lifetime_df[
+                "delivery_delay_change"
+            ].mean()
+        )
+
+        # --------------------------------------------------
+        # KPI CARDS
+        # --------------------------------------------------
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+
+            st.metric(
+                "Top 5% Customers",
+                f"{total_high_value:,}"
+            )
+
+        with col2:
+
+            st.metric(
+                "Avg. Order Frequency Change",
+                f"{average_order_decline:.1f}%"
+            )
+
+        with col3:
+
+            st.metric(
+                "Avg. Rating Change",
+                f"{average_rating_change:.2f}"
+            )
+
+        with col4:
+
+            st.metric(
+                "Avg. Delivery Delay Change",
+                f"{average_delay_change:+.2f} min"
+            )
+
+        # --------------------------------------------------
+        # TOP CUSTOMER DECLINERS
+        # --------------------------------------------------
+
+        st.subheader(
+            "Top 10 High-Value Customer Decliners"
+        )
+
+        display_df = top_decliners[
+            [
+                "customer_id",
+                "pre_crisis_spend",
+                "pre_crisis_orders",
+                "crisis_orders",
+                "order_frequency_change_pct",
+                "pre_crisis_rating",
+                "crisis_rating",
+                "rating_change"
+            ]
+        ].copy()
+
+        display_df.columns = [
+            "Customer",
+            "Pre-Crisis Spend",
+            "Pre-Crisis Orders",
+            "Crisis Orders",
+            "Order Frequency Change %",
+            "Pre-Crisis Rating",
+            "Crisis Rating",
+            "Rating Change"
+        ]
+
+        st.dataframe(
+            display_df,
+            hide_index=True,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # ORDER FREQUENCY DECLINE
+        # --------------------------------------------------
+
+        st.subheader(
+            "Order Frequency Decline"
+        )
+
+        frequency_chart_df = top_decliners[
+            [
+                "customer_id",
+                "order_frequency_change_pct"
+            ]
+        ].sort_values(
+            "order_frequency_change_pct",
+            ascending=True
+        )
+
+        frequency_fig = px.bar(
+            frequency_chart_df,
+            x="order_frequency_change_pct",
+            y="customer_id",
+            orientation="h",
+            text="order_frequency_change_pct",
+            labels={
+                "customer_id": "Customer",
+                "order_frequency_change_pct":
+                    "Order Frequency Change (%)"
+            }
+        )
+
+        frequency_fig.update_traces(
+            texttemplate="%{text:.1f}%",
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Order Frequency Change: %{x:.1f}%"
+                "<extra></extra>"
+            )
+        )
+
+        frequency_fig.update_layout(
+            height=500,
+            margin=dict(
+                t=40,
+                b=40,
+                l=80,
+                r=70
+            )
+        )
+
+        st.plotly_chart(
+            frequency_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # RATING DECLINE
+        # --------------------------------------------------
+
+        st.subheader(
+            "Rating Decline Among Top Decliners"
+        )
+
+        rating_chart_df = top_decliners[
+            [
+                "customer_id",
+                "pre_crisis_rating",
+                "crisis_rating"
+            ]
+        ].melt(
+            id_vars="customer_id",
+            value_vars=[
+                "pre_crisis_rating",
+                "crisis_rating"
+            ],
+            var_name="period",
+            value_name="rating"
+        )
+
+        rating_chart_df["period"] = (
+            rating_chart_df["period"].replace(
+                {
+                    "pre_crisis_rating":
+                        "Pre-Crisis",
+
+                    "crisis_rating":
+                        "Crisis"
+                }
+            )
+        )
+
+        rating_fig = px.bar(
+            rating_chart_df,
+            x="customer_id",
+            y="rating",
+            color="period",
+            barmode="group",
+            labels={
+                "customer_id": "Customer",
+                "rating": "Average Rating",
+                "period": "Period"
+            }
+        )
+
+        rating_fig.update_traces(
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "%{fullData.name}: %{y:.2f}"
+                "<extra></extra>"
+            )
+        )
+
+        rating_fig.update_layout(
+            height=500,
+            yaxis=dict(
+                title="Average Rating",
+                range=[0, 5]
+            ),
+            xaxis=dict(
+                title=""
+            ),
+            margin=dict(
+                t=40,
+                b=80,
+                l=60,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            rating_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # DELIVERY DELAY VS ORDER DECLINE
+        # --------------------------------------------------
+
+        st.subheader(
+            "Delivery Delay vs Order Frequency Decline"
+        )
+
+        scatter_df = lifetime_df.dropna(
+            subset=[
+                "delivery_delay_change",
+                "order_frequency_change_pct"
+            ]
+        ).copy()
+
+        scatter_fig = px.scatter(
+            scatter_df,
+            x="delivery_delay_change",
+            y="order_frequency_change_pct",
+            hover_name="customer_id",
+            hover_data=[
+                "pre_crisis_spend",
+                "pre_crisis_orders",
+                "crisis_orders",
+                "rating_change",
+                "city",
+                "preferred_cuisine"
+            ],
+            labels={
+                "delivery_delay_change":
+                    "Change in Delivery Delay (Minutes)",
+
+                "order_frequency_change_pct":
+                    "Order Frequency Change (%)"
+            }
+        )
+
+        scatter_fig.update_traces(
+            marker=dict(
+                size=9
+            ),
+
+            hovertemplate=(
+                "<b>%{hovertext}</b><br>"
+                "Delivery Delay Change: %{x:.2f} min<br>"
+                "Order Frequency Change: %{y:.1f}%"
+                "<extra></extra>"
+            )
+        )
+
+        scatter_fig.add_hline(
+            y=0,
+            line_dash="dash"
+        )
+
+        scatter_fig.add_vline(
+            x=0,
+            line_dash="dash"
+        )
+
+        scatter_fig.update_layout(
+            height=500,
+            margin=dict(
+                t=40,
+                b=60,
+                l=70,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            scatter_fig,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # COMMON PATTERNS
+        # --------------------------------------------------
+
+        st.subheader(
+            "Common Patterns Among High-Value Customers"
+        )
+
+        pattern_col1, pattern_col2 = st.columns(2)
+
+        with pattern_col1:
+
+            st.write(
+                "**Customer Location**"
+            )
+
+            city_pattern = (
+                lifetime_df["city"]
+                .value_counts()
+                .head(10)
+                .reset_index()
+            )
+
+            city_pattern.columns = [
+                "City",
+                "Customers"
+            ]
+
+            st.dataframe(
+                city_pattern,
+                hide_index=True,
+                width="stretch"
+            )
+
+        with pattern_col2:
+
+            st.write(
+                "**Preferred Cuisine**"
+            )
+
+            cuisine_pattern = (
+                lifetime_df["preferred_cuisine"]
+                .value_counts()
+                .head(10)
+                .reset_index()
+            )
+
+            cuisine_pattern.columns = [
+                "Cuisine",
+                "Customers"
+            ]
+
+            st.dataframe(
+                cuisine_pattern,
+                hide_index=True,
+                width="stretch"
+            )
+
+        # --------------------------------------------------
+        # DELIVERY DELAY PATTERN
+        # --------------------------------------------------
+
+        st.subheader(
+            "Delivery Delay Pattern"
+        )
+
+        delay_pattern_df = (
+            lifetime_df[
+                [
+                    "customer_id",
+                    "pre_crisis_delivery_delay",
+                    "crisis_delivery_delay",
+                    "delivery_delay_change"
+                ]
+            ]
+            .sort_values(
+                "delivery_delay_change",
+                ascending=False
+            )
+            .head(10)
+        )
+
+        st.dataframe(
+            delay_pattern_df,
+            hide_index=True,
+            width="stretch"
+        )
+
+        # --------------------------------------------------
+        # KEY FINDING
+        # --------------------------------------------------
+
+        st.subheader(
+            "Key Finding"
+        )
+
+        worst_customer = (
+            lifetime_df
+            .sort_values(
+                "order_frequency_change_pct"
+            )
+            .iloc[0]
+        )
+
+        st.write(
+            f"""
+            The analysis identified **{total_high_value:,} customers**
+            belonging to the top 5% of pre-crisis spending.
+
+            Among these high-value customers, the largest decline was
+            observed for **{worst_customer['customer_id']}**, whose order
+            frequency changed by
+            **{worst_customer['order_frequency_change_pct']:.1f}%**
+            during the crisis.
+
+            Their average rating changed from
+            **{worst_customer['pre_crisis_rating']:.2f}**
+            to
+            **{worst_customer['crisis_rating']:.2f}**.
+
+            The analysis also examines whether high-value customer
+            deterioration is associated with increased delivery delays,
+            specific cities, or preferred cuisines.
+            """
+        )

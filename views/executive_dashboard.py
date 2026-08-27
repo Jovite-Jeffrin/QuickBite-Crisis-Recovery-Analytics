@@ -3,287 +3,286 @@ import pandas as pd
 import plotly.express as px
 
 from database import get_engine
-from utils.sql_loader import load_sql
+
+
+def load_sql(file_path):
+
+    with open(
+        file_path,
+        "r",
+        encoding="utf-8"
+    ) as file:
+
+        return file.read()
 
 
 def show():
-    """
-    Render the Executive Dashboard.
-    """
 
-    # --------------------------------------------------
-    # Header
-    # --------------------------------------------------
+    # ==================================================
+    # PAGE HEADER
+    # ==================================================
 
-    st.title("Executive Dashboard")
-    st.subheader("Business Performance Overview")
+    st.title(
+        "QuickBite Crisis Executive Dashboard"
+    )
 
     st.write(
         """
-        This dashboard provides a high-level summary of QuickBite's
-        operational, customer, and financial performance.
+        Executive overview of QuickBite's business performance
+        before and during the crisis period.
         """
     )
 
-    st.divider()
-
-    # --------------------------------------------------
-    # Database Connection
-    # --------------------------------------------------
+    # ==================================================
+    # DATABASE CONNECTION
+    # ==================================================
 
     try:
+
         engine = get_engine()
 
-        with engine.connect():
-            pass
-
     except Exception as e:
-        st.error("Unable to connect to PostgreSQL.")
+
+        st.error(
+            "Unable to connect to the database."
+        )
+
         st.exception(e)
+
         return
 
-    # --------------------------------------------------
-    # Executive KPIs
-    # --------------------------------------------------
+    # ==================================================
+    # LOAD EXECUTIVE DATA
+    # ==================================================
 
     try:
-        kpi_query = load_sql("sql/executive_kpis.sql")
 
-        kpi_df = pd.read_sql(
-            kpi_query,
+        query = load_sql(
+            "sql/executive_dashboard.sql"
+        )
+
+        df = pd.read_sql(
+            query,
             engine
         )
 
     except Exception as e:
-        st.error("Unable to load executive KPI data.")
+
+        st.error(
+            "Unable to load executive dashboard data."
+        )
+
         st.exception(e)
+
         return
 
-    kpis = kpi_df.iloc[0]
+    if df.empty:
 
-    total_orders = int(kpis["total_orders"])
-    total_revenue = float(kpis["total_revenue"])
-    total_customers = int(kpis["total_customers"])
-    average_rating = float(kpis["average_rating"])
-    cancellation_rate = float(kpis["cancellation_rate"])
-    average_delivery_time = float(
-        kpis["average_delivery_time"]
+        st.warning(
+            "No executive dashboard data is available."
+        )
+
+        return
+
+    # ==================================================
+    # PRE-CRISIS / CRISIS ROWS
+    # ==================================================
+
+    pre_crisis = df[
+        df["phase"] == "Pre-Crisis"
+    ].iloc[0]
+
+    crisis = df[
+        df["phase"] == "Crisis"
+    ].iloc[0]
+
+    # ==================================================
+    # CHANGE CALCULATIONS
+    # ==================================================
+
+    revenue_change_pct = (
+        (
+            crisis["revenue"]
+            -
+            pre_crisis["revenue"]
+        )
+        /
+        pre_crisis["revenue"]
+    ) * 100
+
+    order_change_pct = (
+        (
+            crisis["total_orders"]
+            -
+            pre_crisis["total_orders"]
+        )
+        /
+        pre_crisis["total_orders"]
+    ) * 100
+
+    cancellation_change_pp = (
+        crisis["cancellation_rate"]
+        -
+        pre_crisis["cancellation_rate"]
     )
 
-    # --------------------------------------------------
-    # KPI Section
-    # --------------------------------------------------
+    rating_change = (
+        crisis["avg_rating"]
+        -
+        pre_crisis["avg_rating"]
+    )
 
-    st.header("Key Performance Indicators")
+    delivery_change = (
+        crisis["avg_delivery_time"]
+        -
+        pre_crisis["avg_delivery_time"]
+    )
 
-    col1, col2, col3 = st.columns(3)
+    # ==================================================
+    # EXECUTIVE SUMMARY
+    # ==================================================
+
+    st.info(
+        f"""
+        QuickBite experienced significant deterioration across
+        financial, customer and operational metrics during the
+        crisis. Revenue declined by **{abs(revenue_change_pct):.1f}%**,
+        total orders declined by **{abs(order_change_pct):.1f}%**,
+        cancellation rate increased by
+        **{cancellation_change_pp:.2f} percentage points**, and
+        average customer rating changed by
+        **{rating_change:.2f} points**.
+        """
+    )
+
+    # ==================================================
+    # CORE BUSINESS KPIs
+    # ==================================================
+
+    st.header(
+        "Core Business Impact"
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+
         st.metric(
-            label="Total Orders",
-            value=f"{total_orders:,}"
+            "Revenue",
+            f"₹{crisis['revenue']:,.0f}",
+            delta=f"{revenue_change_pct:.1f}%",
+            delta_color="inverse"
         )
 
     with col2:
+
         st.metric(
-            label="Total Revenue",
-            value=f"₹{total_revenue:,.0f}"
+            "Total Orders",
+            f"{crisis['total_orders']:,}",
+            delta=f"{order_change_pct:.1f}%",
+            delta_color="inverse"
         )
 
     with col3:
-        st.metric(
-            label="Total Customers",
-            value=f"{total_customers:,}"
-        )
 
-    col4, col5, col6 = st.columns(3)
+        st.metric(
+            "Cancellation Rate",
+            f"{crisis['cancellation_rate']:.2f}%",
+            delta=f"{cancellation_change_pp:+.2f} pp",
+            delta_color="inverse"
+        )
 
     with col4:
+
         st.metric(
-            label="Average Rating",
-            value=f"{average_rating:.2f}"
+            "Average Rating",
+            f"{crisis['avg_rating']:.2f}",
+            delta=f"{rating_change:+.2f}",
+            delta_color="inverse"
         )
 
-    with col5:
+    # ==================================================
+    # OPERATIONAL KPI
+    # ==================================================
+
+    st.subheader(
+        "Delivery Performance"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
         st.metric(
-            label="Cancellation Rate",
-            value=f"{cancellation_rate:.2f}%"
+            "Average Delivery Time",
+            f"{crisis['avg_delivery_time']:.2f} min",
+            delta=f"+{delivery_change:.2f} min",
+            delta_color="inverse"
         )
 
-    with col6:
+    with col2:
+
         st.metric(
-            label="Average Delivery Time",
-            value=f"{average_delivery_time:.1f} min"
+            "Delivery Variance",
+            f"{crisis['avg_delivery_variance']:.2f} min",
+            delta=(
+                f"{crisis['avg_delivery_variance'] - pre_crisis['avg_delivery_variance']:+.2f} min"
+            ),
+            delta_color="inverse"
         )
 
-    st.divider()
+    # ==================================================
+    # PHASE COMPARISON DATA
+    # ==================================================
+
+    st.header(
+        "Pre-Crisis vs Crisis"
+    )
 
     # --------------------------------------------------
-    # Monthly Order Trend
+    # REVENUE
     # --------------------------------------------------
 
-    st.header("Monthly Order Trend")
-
-    try:
-        orders_query = load_sql(
-            "sql/monthly_orders.sql"
-        )
-
-        monthly_orders = pd.read_sql(
-            orders_query,
-            engine
-        )
-
-    except Exception as e:
-        st.error("Unable to load monthly order data.")
-        st.exception(e)
-        return
-
-    monthly_orders["order_month"] = pd.to_datetime(
-        monthly_orders["order_month"]
+    st.subheader(
+        "Revenue Impact"
     )
 
-    order_fig = px.line(
-        monthly_orders,
-        x="order_month",
-        y="total_orders",
-        markers=True,
-        labels={
-            "order_month": "Month",
-            "total_orders": "Orders"
-        }
-    )
-
-    order_fig.update_traces(
-        line=dict(width=3),
-        marker=dict(size=8),
-        hovertemplate=(
-            "<b>%{x|%B %Y}</b><br>"
-            "Orders: %{y:,.0f}"
-            "<extra></extra>"
-        )
-    )
-
-    order_fig.add_vrect(
-        x0="2025-06-01",
-        x1="2025-10-01",
-        fillcolor="gray",
-        opacity=0.12,
-        line_width=0,
-        annotation_text="Crisis Period",
-        annotation_position="top left"
-    )
-
-    order_fig.add_vline(
-        x="2025-06-01",
-        line_dash="dash",
-        line_width=2,
-        annotation_text="Crisis Begins",
-        annotation_position="top"
-    )
-
-    order_fig.update_layout(
-        hovermode="x unified",
-        height=450,
-        xaxis=dict(
-            tickformat="%b %Y",
-            title="Month"
-        ),
-        yaxis=dict(
-            title="Number of Orders",
-            tickformat=","
-        ),
-        margin=dict(
-            t=60,
-            b=40,
-            l=60,
-            r=30
-        )
-    )
-
-    st.plotly_chart(
-        order_fig,
-        width="stretch"
-    )
-
-    st.divider()
-
-    # --------------------------------------------------
-    # Monthly Revenue Trend
-    # --------------------------------------------------
-
-    st.header("Monthly Revenue Trend")
-
-    try:
-        revenue_query = load_sql(
-            "sql/monthly_revenue.sql"
-        )
-
-        monthly_revenue = pd.read_sql(
-            revenue_query,
-            engine
-        )
-
-    except Exception as e:
-        st.error("Unable to load monthly revenue data.")
-        st.exception(e)
-        return
-
-    monthly_revenue["order_month"] = pd.to_datetime(
-        monthly_revenue["order_month"]
-    )
+    revenue_chart = df[
+        [
+            "phase",
+            "revenue"
+        ]
+    ].copy()
 
     revenue_fig = px.bar(
-        monthly_revenue,
-        x="order_month",
-        y="total_revenue",
+        revenue_chart,
+        x="phase",
+        y="revenue",
+        text="revenue",
         labels={
-            "order_month": "Month",
-            "total_revenue": "Revenue"
+            "phase": "Period",
+            "revenue": "Revenue"
         }
     )
 
     revenue_fig.update_traces(
+        texttemplate="₹%{text:,.0f}",
+        textposition="outside",
         hovertemplate=(
-            "<b>%{x|%B %Y}</b><br>"
-            "Revenue: ₹%{y:,.2f}"
+            "<b>%{x}</b><br>"
+            "Revenue: ₹%{y:,.0f}"
             "<extra></extra>"
         )
     )
 
-    revenue_fig.add_vrect(
-        x0="2025-06-01",
-        x1="2025-10-01",
-        fillcolor="gray",
-        opacity=0.12,
-        line_width=0,
-        annotation_text="Crisis Period",
-        annotation_position="top left"
-    )
-
-    revenue_fig.add_vline(
-        x="2025-06-01",
-        line_dash="dash",
-        line_width=2,
-        annotation_text="Crisis Begins",
-        annotation_position="top"
-    )
-
     revenue_fig.update_layout(
-        height=450,
-        xaxis=dict(
-            tickformat="%b %Y",
-            title="Month"
-        ),
-        yaxis=dict(
-            title="Revenue",
-            tickprefix="₹",
-            tickformat=",.0f"
-        ),
+        height=400,
+        xaxis_title="",
+        yaxis_title="Revenue (₹)",
         margin=dict(
-            t=60,
+            t=40,
             b=40,
-            l=60,
+            l=70,
             r=30
         )
     )
@@ -293,97 +292,139 @@ def show():
         width="stretch"
     )
 
-    st.divider()
+    # ==================================================
+    # ORDERS & CANCELLATIONS
+    # ==================================================
 
-    # --------------------------------------------------
-    # Monthly Customer Rating Trend
-    # --------------------------------------------------
+    col1, col2 = st.columns(2)
 
-    st.header("Monthly Customer Rating Trend")
+    with col1:
 
-    try:
-        ratings_query = load_sql(
-            "sql/monthly_ratings.sql"
+        st.subheader(
+            "Order Volume"
         )
 
-        monthly_ratings = pd.read_sql(
-            ratings_query,
-            engine
+        order_fig = px.bar(
+            df,
+            x="phase",
+            y="total_orders",
+            text="total_orders",
+            labels={
+                "phase": "Period",
+                "total_orders": "Orders"
+            }
         )
 
-    except Exception as e:
-        st.error("Unable to load monthly rating data.")
-        st.exception(e)
-        return
+        order_fig.update_traces(
+            texttemplate="%{text:,}",
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Orders: %{y:,}"
+                "<extra></extra>"
+            )
+        )
 
-    monthly_ratings["review_month"] = pd.to_datetime(
-        monthly_ratings["review_month"]
+        order_fig.update_layout(
+            height=400,
+            xaxis_title="",
+            yaxis_title="Orders",
+            margin=dict(
+                t=40,
+                b=40,
+                l=60,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            order_fig,
+            width="stretch"
+        )
+
+    with col2:
+
+        st.subheader(
+            "Cancellation Rate"
+        )
+
+        cancellation_fig = px.bar(
+            df,
+            x="phase",
+            y="cancellation_rate",
+            text="cancellation_rate",
+            labels={
+                "phase": "Period",
+                "cancellation_rate":
+                    "Cancellation Rate (%)"
+            }
+        )
+
+        cancellation_fig.update_traces(
+            texttemplate="%{text:.2f}%",
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Cancellation Rate: %{y:.2f}%"
+                "<extra></extra>"
+            )
+        )
+
+        cancellation_fig.update_layout(
+            height=400,
+            xaxis_title="",
+            yaxis_title="Cancellation Rate (%)",
+            margin=dict(
+                t=40,
+                b=40,
+                l=60,
+                r=30
+            )
+        )
+
+        st.plotly_chart(
+            cancellation_fig,
+            width="stretch"
+        )
+
+    # ==================================================
+    # CUSTOMER EXPERIENCE
+    # ==================================================
+
+    st.header(
+        "Customer Experience"
     )
 
-    rating_fig = px.line(
-        monthly_ratings,
-        x="review_month",
-        y="average_rating",
-        markers=True,
+    rating_fig = px.bar(
+        df,
+        x="phase",
+        y="avg_rating",
+        text="avg_rating",
         labels={
-            "review_month": "Month",
-            "average_rating": "Average Rating"
+            "phase": "Period",
+            "avg_rating": "Average Rating"
         }
     )
 
     rating_fig.update_traces(
-        line=dict(width=3),
-        marker=dict(size=9),
+        texttemplate="%{text:.2f}",
+        textposition="outside",
         hovertemplate=(
-            "<b>%{x|%B %Y}</b><br>"
+            "<b>%{x}</b><br>"
             "Average Rating: %{y:.2f}"
             "<extra></extra>"
         )
     )
 
-    # Highlight crisis period
-    rating_fig.add_vrect(
-        x0="2025-06-01",
-        x1="2025-10-01",
-        fillcolor="gray",
-        opacity=0.12,
-        line_width=0,
-        annotation_text="Crisis Period",
-        annotation_position="top left"
-    )
-
-    # Crisis start marker
-    rating_fig.add_vline(
-        x="2025-06-01",
-        line_dash="dash",
-        line_width=2,
-        annotation_text="Crisis Begins",
-        annotation_position="top"
-    )
-
-    # 4.0 rating reference line
-    rating_fig.add_hline(
-        y=4.0,
-        line_dash="dot",
-        line_width=1.5,
-        annotation_text="4.0 Rating Benchmark",
-        annotation_position="bottom right"
-    )
-
     rating_fig.update_layout(
-        hovermode="x unified",
-        height=450,
-        xaxis=dict(
-            tickformat="%b %Y",
-            title="Month"
-        ),
+        height=400,
         yaxis=dict(
             title="Average Rating",
-            range=[0, 5],
-            dtick=0.5
+            range=[0, 5]
         ),
+        xaxis_title="",
         margin=dict(
-            t=60,
+            t=40,
             b=40,
             l=60,
             r=30
@@ -395,19 +436,117 @@ def show():
         width="stretch"
     )
 
-    st.divider()
+    # ==================================================
+    # DELIVERY PERFORMANCE
+    # ==================================================
 
-    # --------------------------------------------------
-    # Dashboard Summary
-    # --------------------------------------------------
+    st.header(
+        "Delivery Performance"
+    )
 
-    st.header("Dashboard Summary")
+    delivery_chart_df = df[
+        [
+            "phase",
+            "avg_delivery_time",
+            "avg_delivery_variance"
+        ]
+    ].melt(
+        id_vars="phase",
+        var_name="metric",
+        value_name="minutes"
+    )
 
-    st.write(
-        """
-        The Executive Dashboard provides an initial view of QuickBite's
-        business performance across demand, revenue, and customer experience.
-        Detailed analysis of the crisis impact is explored in the subsequent
-        analytical sections.
+    delivery_chart_df["metric"] = (
+        delivery_chart_df["metric"].replace(
+            {
+                "avg_delivery_time":
+                    "Actual Delivery Time",
+
+                "avg_delivery_variance":
+                    "Delivery Variance"
+            }
+        )
+    )
+
+    delivery_fig = px.bar(
+        delivery_chart_df,
+        x="phase",
+        y="minutes",
+        color="metric",
+        barmode="group",
+        text="minutes",
+        labels={
+            "phase": "Period",
+            "minutes": "Minutes",
+            "metric": "Metric"
+        }
+    )
+
+    delivery_fig.update_traces(
+        texttemplate="%{text:.2f}",
+        textposition="outside",
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "%{fullData.name}: %{y:.2f} min"
+            "<extra></extra>"
+        )
+    )
+
+    delivery_fig.update_layout(
+        height=450,
+        xaxis_title="",
+        yaxis_title="Minutes",
+        margin=dict(
+            t=40,
+            b=40,
+            l=60,
+            r=30
+        )
+    )
+
+    st.plotly_chart(
+        delivery_fig,
+        width="stretch"
+    )
+
+    # ==================================================
+    # EXECUTIVE TAKEAWAYS
+    # ==================================================
+
+    st.header(
+        "Executive Takeaways"
+    )
+
+    st.markdown(
+        f"""
+        **1. Financial Impact**
+
+        Revenue declined by **{abs(revenue_change_pct):.1f}%**
+        during the crisis.
+
+        **2. Demand Impact**
+
+        Total order volume declined by
+        **{abs(order_change_pct):.1f}%**.
+
+        **3. Operational Impact**
+
+        Average delivery time increased by
+        **{delivery_change:.2f} minutes**, while delivery variance
+        increased substantially.
+
+        **4. Customer Experience**
+
+        Average customer rating changed from
+        **{pre_crisis['avg_rating']:.2f}**
+        to
+        **{crisis['avg_rating']:.2f}**.
+
+        **5. Cancellation Pressure**
+
+        Cancellation rate increased from
+        **{pre_crisis['cancellation_rate']:.2f}%**
+        to
+        **{crisis['cancellation_rate']:.2f}%**.
         """
     )
