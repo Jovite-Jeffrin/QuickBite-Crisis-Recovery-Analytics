@@ -10,6 +10,7 @@ import views.feedback_analysis as feedback_analysis
 import views.revenue_analysis as revenue_analysis
 import views.recommendations as recommendations
 import views.about as about
+import views.insights as insights
 
 
 st.set_page_config(
@@ -23,7 +24,8 @@ PAGES = {
     "Home": home.show,
     "Business Overview": business_overview.show,
     "Executive Dashboard": executive_dashboard.show,
-    "Order Analysis": order_analysis.show
+    "Order Analysis": order_analysis.show,
+    "Insights & Recommendations": insights.show
     # ,
     # "Customer Analysis": customer_analysis.show,
     # "Delivery Analysis": delivery_analysis.show,
