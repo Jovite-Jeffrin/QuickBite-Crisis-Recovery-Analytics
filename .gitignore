@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+quickbite.db
+test_csv.py
+test_sqlite.py
+.streamlit/secrets.toml
